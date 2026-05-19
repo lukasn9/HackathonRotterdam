@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 import { SAMPLE_TRANSCRIPT } from '@/lib/transcript-data'
 
 export default function TranscriptView({ roomId }: { roomId: string }) {
@@ -16,7 +16,10 @@ export default function TranscriptView({ roomId }: { roomId: string }) {
       .then((d) => { if (typeof d.currentLineIndex === 'number') setCurrentIndex(d.currentLineIndex) })
       .catch(() => {})
 
-    const supabase = createBrowserClient()
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
 
     const channel = supabase
       .channel(`room-transcript-${roomId}`)
