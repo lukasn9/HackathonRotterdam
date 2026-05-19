@@ -101,11 +101,11 @@ function FloatingReactions({ roomId }: { roomId: string }) {
                 transform: `translateY(${y}px)`,
                 transition: `transform 0.35s cubic-bezier(0.34,1.4,0.64,1) ${delay}`,
               }}
-              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg border select-none transition-colors ${
+              className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl shadow-lg border select-none transition-all ${
                 isActive
                   ? 'bg-blue-700/40 border-blue-500'
-                  : open && locked
-                  ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
+                  : locked
+                  ? 'bg-gray-800/40 border-gray-800 opacity-30 cursor-not-allowed'
                   : 'bg-gray-800 border-gray-700 active:scale-95'
               }`}
             >
@@ -181,10 +181,14 @@ export default function AudienceRoom({ roomId, roomTitle, displayName, profileTa
         {/* Floating chat button — bottom-right */}
         <button
           onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-700 hover:bg-blue-600 active:bg-blue-800 rounded-full shadow-xl flex items-center justify-center text-2xl transition-colors"
+          className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-700 hover:bg-blue-600 active:bg-blue-800 rounded-full shadow-xl flex items-center justify-center transition-colors"
           aria-label="Open chat"
         >
-          💬
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            <line x1="9" y1="10" x2="15" y2="10" />
+            <line x1="9" y1="14" x2="13" y2="14" />
+          </svg>
         </button>
 
         {/* Chat backdrop */}

@@ -63,8 +63,8 @@ export default function TranscriptView({ roomId }: { roomId: string }) {
                 key={line.index}
                 className={`leading-relaxed transition-all duration-500 ${
                   isActive
-                    ? 'text-white text-lg font-medium'
-                    : 'text-gray-500 text-base opacity-60'
+                    ? 'text-white text-xl font-medium'
+                    : 'text-gray-500 text-lg opacity-60'
                 }`}
               >
                 {line.text}
