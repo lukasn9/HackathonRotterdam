@@ -9,11 +9,11 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const counts = getReactionCounts(params.id)
   const total = Object.values(counts).reduce((s, v) => s + v, 0)
+  const isFinished = room.currentLineIndex >= room.transcript.length - 1 && room.currentLineIndex >= 0
 
-  // Return last 20 events, newest first
+  // Return all stored events (up to 50), newest first
   const timeline = [...room.reactionTimeline]
     .reverse()
-    .slice(0, 20)
     .map((e) => ({
       id: e.id,
       emoji: e.emoji,
@@ -22,5 +22,5 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       timestamp: e.timestamp,
     }))
 
-  return NextResponse.json({ counts, total, respondents: room.reactions.size, timeline })
+  return NextResponse.json({ counts, total, respondents: room.reactions.size, timeline, isFinished })
 }
