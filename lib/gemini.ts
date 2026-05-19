@@ -9,31 +9,30 @@ function buildSystemPrompt(transcript: TranscriptLine[], currentIndex: number, a
     .map((l) => l.text)
     .join('\n')
 
-  const proficiencyInstruction =
+  const styleInstruction =
     attendee.proficiencyLevel === 'Novice'
-      ? 'Explain concepts using everyday analogies. Avoid technical jargon. Use short sentences. If you must use a technical term, immediately define it in plain language.'
+      ? 'Explain using plain language and everyday analogies. Avoid jargon; if a term from the transcript must be used, define it immediately.'
       : attendee.proficiencyLevel === 'Intermediate'
-      ? 'Assume the attendee has foundational knowledge in their field. You may use standard terminology but briefly explain concepts from adjacent fields. Use concrete examples.'
-      : 'Use precise technical terminology appropriate for a domain expert. Provide depth, nuance, and where relevant, cite limitations or open questions related to what the speaker described.'
+      ? 'Use standard terminology. Briefly explain any specialised concept that appears in the transcript.'
+      : 'Be technically precise when explaining what the speaker said. You may use domain terminology appropriate for an expert.'
 
-  return `You are a knowledgeable assistant helping an audience member understand a live presentation.
+  return `You are a Q&A assistant for a live presentation. Your knowledge is strictly limited to the speaker transcript provided below. You have no other information about this topic.
 
-ATTENDEE PROFILE:
-- Name: ${attendee.name}
-- Institution: ${attendee.institution}
-- Field of Study: ${attendee.fieldOfStudy}
-- Proficiency Level: ${attendee.proficiencyLevel}
+TRANSCRIPT — the only source you may draw from:
+---
+${transcriptSoFar || '(The presentation has not started yet — no content to reference.)'}
+---
 
-COMMUNICATION STYLE:
-${proficiencyInstruction}
+STRICT RULES:
+1. Answer using ONLY what appears word-for-word or by clear implication in the transcript above.
+2. If the answer is not in the transcript, reply with exactly: "That hasn't been covered yet in the presentation."
+3. Do not add facts, examples, or context from your training knowledge, even if you are confident they are correct.
+4. Do not speculate about what the speaker might say next.
 
-FIELD CONTEXT:
-The attendee studies ${attendee.fieldOfStudy}. When possible, connect the speaker's points to concepts or applications relevant to that field.
+COMMUNICATION STYLE (apply only to content that IS in the transcript):
+${styleInstruction}
 
-PRESENTATION TRANSCRIPT SO FAR:
-${transcriptSoFar || '(The presentation has not started yet.)'}
-
-Answer only based on what has been said in the presentation so far. If the question is about something not yet covered, say so briefly and offer context from what has been presented. Keep answers concise — 2 to 3 sentences for simple questions, up to 4 for complex ones.`
+Keep answers short: 2–3 sentences for simple questions, 4 sentences maximum for complex ones.`
 }
 
 export async function summarizeTranscript({
@@ -52,28 +51,29 @@ export async function summarizeTranscript({
     .map((l) => l.text)
     .join('\n')
 
-  const proficiencyInstruction =
+  const styleInstruction =
     attendee.proficiencyLevel === 'Novice'
-      ? 'Use plain language and everyday analogies. Avoid jargon. Keep each point short and concrete.'
+      ? 'Plain language only. No jargon.'
       : attendee.proficiencyLevel === 'Intermediate'
-      ? 'Use standard terminology. Include key concepts and briefly explain their significance.'
-      : 'Be technically precise. Include domain-specific details and any nuances the speaker raised.'
+      ? 'Standard terminology, brief explanations.'
+      : 'Technically precise, no simplification needed.'
 
-  const systemPrompt = `You are summarizing a live presentation for an attendee who may have missed some content.
+  const systemPrompt = `You are summarizing a live presentation for a late-joining attendee. Summarize ONLY what is in the transcript below — do not add outside knowledge.
 
-ATTENDEE PROFILE:
-- Field of Study: ${attendee.fieldOfStudy}
-- Proficiency Level: ${attendee.proficiencyLevel}
+TRANSCRIPT:
+---
+${transcriptSoFar}
+---
 
-STYLE: ${proficiencyInstruction}
+STYLE: ${styleInstruction}
 
-Write a concise catch-up summary of the presentation so far. Use 4-6 bullet points. Each bullet should capture one key idea. Start each bullet with a bold keyword or phrase. Do not use headers — just the bullet list.`
+Write 2–3 bullet points maximum. Each bullet is one short sentence. Start each bullet with a bold keyword. No headers, no preamble — just the bullets.`
 
   const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
   const result = await model.generateContent({
-    contents: [{ role: 'user', parts: [{ text: `Please summarize the following presentation transcript:\n\n${transcriptSoFar}` }] }],
+    contents: [{ role: 'user', parts: [{ text: 'Summarize the presentation so far.' }] }],
     systemInstruction: systemPrompt,
-    generationConfig: { maxOutputTokens: 600, temperature: 0.3 },
+    generationConfig: { maxOutputTokens: 200, temperature: 0.2 },
   })
   return result.response.text()
 }
@@ -93,7 +93,7 @@ export async function answerQuestion({
   const result = await model.generateContent({
     contents: [{ role: 'user', parts: [{ text: question }] }],
     systemInstruction: buildSystemPrompt(transcript, currentIndex, attendee),
-    generationConfig: { maxOutputTokens: 512, temperature: 0.4 },
+    generationConfig: { maxOutputTokens: 300, temperature: 0.2 },
   })
   return result.response.text()
 }

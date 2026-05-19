@@ -60,7 +60,7 @@ export default function ChatPanel({ roomId }: { roomId: string }) {
 
   async function handleCatchMeUp() {
     if (loading) return
-    setMessages((prev) => [...prev, { role: 'user', content: '📋 Catch me up on what I missed' }])
+    setMessages((prev) => [...prev, { role: 'user', content: 'Catch me up on what I missed' }])
     setLoading(true)
 
     try {
@@ -89,7 +89,7 @@ export default function ChatPanel({ roomId }: { roomId: string }) {
           disabled={loading}
           className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-gray-600 text-gray-400 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          📋 Catch me up
+          Catch me up
         </button>
       </div>
 
