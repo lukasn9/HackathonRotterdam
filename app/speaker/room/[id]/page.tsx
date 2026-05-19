@@ -74,6 +74,7 @@ export default function SpeakerRoomPage() {
 
   const formattedCode = `${room.accessCode.slice(0, 3)}-${room.accessCode.slice(3)}`
   const joinUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${room.accessCode}` : ''
+  setQrUrl(joinUrl)
 
   return (
     <main className="min-h-screen bg-gray-900 p-6 space-y-6">
@@ -98,12 +99,12 @@ export default function SpeakerRoomPage() {
 
         {/* QR code */}
         <div className="bg-gray-800 rounded-2xl p-6 flex flex-col items-center justify-center">
-          {qrDataUrl ? (
+          {joinUrl ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={qrDataUrl} alt="Room QR code" className="w-40 h-40 rounded-lg" />
+              <img src={joinUrl} alt="Room QR code" className="w-40 h-40 rounded-lg" />
               <p className="text-xs text-gray-500 mt-2">Scan to join</p>
-              {qrUrl && <p className="text-[10px] text-gray-600 mt-1 break-all text-center">{qrUrl}</p>}
+              {joinUrl && <p className="text-[10px] text-gray-600 mt-1 break-all text-center">{joinUrl}</p>}
             </>
           ) : (
             <div className="w-40 h-40 bg-gray-700 rounded-lg animate-pulse" />
