@@ -44,6 +44,8 @@ export type Room = {
   reactions: Map<string, string>
   // Append-only log of every reaction click, newest last, capped at 50
   reactionTimeline: ReactionEvent[]
+  // Topic label → questions array (capped at 10 per topic)
+  questionTopics: Record<string, string[]>
 }
 
 // Survive Next.js hot reloads in dev
@@ -66,6 +68,7 @@ export function createRoom(title: string): Room {
     sseClients: new Set(),
     reactions: new Map(),
     reactionTimeline: [],
+    questionTopics: {},
   }
   rooms.set(id, room)
   return room
@@ -136,6 +139,15 @@ export function getReactionCounts(roomId: string): Record<string, number> {
     counts[emoji] = (counts[emoji] ?? 0) + 1
   }
   return counts
+}
+
+export function recordTopic(roomId: string, topic: string, question: string): void {
+  const room = rooms.get(roomId)
+  if (!room) return
+  const key = topic.trim()
+  if (!key) return
+  if (!room.questionTopics[key]) room.questionTopics[key] = []
+  if (room.questionTopics[key].length < 10) room.questionTopics[key].push(question)
 }
 
 export function formatCode(code: string): string {

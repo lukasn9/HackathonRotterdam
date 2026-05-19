@@ -14,7 +14,7 @@ function renderMarkdown(text: string) {
     )
     return isBullet ? (
       <li key={i} className="flex gap-1.5 leading-relaxed">
-        <span className="text-indigo-400 flex-shrink-0 mt-0.5">•</span>
+        <span className="text-blue-400 flex-shrink-0 mt-0.5">•</span>
         <span>{rendered}</span>
       </li>
     ) : (
@@ -104,7 +104,7 @@ export default function ChatPanel({ roomId }: { roomId: string }) {
             <div
               className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                 m.role === 'user'
-                  ? 'bg-indigo-600 text-white rounded-br-sm leading-relaxed'
+                  ? 'bg-blue-700 text-white rounded-br-sm leading-relaxed'
                   : 'bg-gray-800 text-gray-200 rounded-bl-sm'
               }`}
             >
@@ -137,12 +137,12 @@ export default function ChatPanel({ roomId }: { roomId: string }) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask a question..."
           disabled={loading}
-          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder:text-gray-600 disabled:opacity-50"
+          className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-700 placeholder:text-gray-600 disabled:opacity-50"
         />
         <button
           type="submit"
           disabled={!input.trim() || loading}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium transition-colors"
+          className="px-4 py-2.5 bg-blue-700 hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-sm font-medium transition-colors"
         >
           Send
         </button>

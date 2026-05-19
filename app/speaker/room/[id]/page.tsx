@@ -6,6 +6,7 @@ import TranscriptControls from '@/components/TranscriptControls'
 import AttendeeList from '@/components/AttendeeList'
 import DemographicsChart from '@/components/DemographicsChart'
 import ReactionStats from '@/components/ReactionStats'
+import TopicBubbles from '@/components/TopicBubbles'
 
 type RoomInfo = { id: string; accessCode: string; title: string; isPlaying: boolean; currentLineIndex: number; totalLines: number }
 type Attendee = { id: string; name: string; institution: string; fieldOfStudy: string; proficiencyLevel: string; joinedAt: string }
@@ -16,6 +17,7 @@ export default function SpeakerRoomPage() {
 
   const [room, setRoom] = useState<RoomInfo | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string>('')
+  const [qrUrl, setQrUrl] = useState<string>('')
   const [attendees, setAttendees] = useState<Attendee[]>([])
   const [notFound, setNotFound] = useState(false)
 
@@ -32,7 +34,7 @@ export default function SpeakerRoomPage() {
     // Fetch QR code
     fetch(`/api/room/${roomId}/qr`)
       .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.dataUrl) setQrDataUrl(data.dataUrl) })
+      .then((data) => { if (data?.dataUrl) { setQrDataUrl(data.dataUrl); setQrUrl(data.url ?? '') } })
       .catch(() => {})
 
     // Fetch initial attendees
@@ -56,7 +58,7 @@ export default function SpeakerRoomPage() {
       <main className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-4">
           <p className="text-xl">Room not found</p>
-          <a href="/speaker" className="text-indigo-400 hover:underline">← Create new room</a>
+          <a href="/speaker" className="text-blue-400 hover:underline">← Create new room</a>
         </div>
       </main>
     )
@@ -101,6 +103,7 @@ export default function SpeakerRoomPage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qrDataUrl} alt="Room QR code" className="w-40 h-40 rounded-lg" />
               <p className="text-xs text-gray-500 mt-2">Scan to join</p>
+              {qrUrl && <p className="text-[10px] text-gray-600 mt-1 break-all text-center">{qrUrl}</p>}
             </>
           ) : (
             <div className="w-40 h-40 bg-gray-700 rounded-lg animate-pulse" />
@@ -115,9 +118,14 @@ export default function SpeakerRoomPage() {
         </div>
       </div>
 
-      {/* Live reactions */}
-      <div className="bg-gray-800 rounded-2xl p-6">
-        <ReactionStats roomId={roomId} />
+      {/* Live reactions + Topic bubbles */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-gray-800 rounded-2xl p-6">
+          <ReactionStats roomId={roomId} />
+        </div>
+        <div className="bg-gray-800 rounded-2xl p-6">
+          <TopicBubbles roomId={roomId} />
+        </div>
       </div>
 
       {/* Attendees + Demographics */}

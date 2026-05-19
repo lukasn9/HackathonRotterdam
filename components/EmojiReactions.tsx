@@ -86,7 +86,7 @@ export default function EmojiReactions({ roomId }: { roomId: string }) {
               title={label}
               className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl border transition-all duration-200 select-none ${
                 isActive
-                  ? 'border-indigo-500 bg-indigo-500/20 scale-110 shadow-lg shadow-indigo-500/20'
+                  ? 'border-blue-700 bg-blue-700/20 scale-110 shadow-lg shadow-blue-700/20'
                   : locked
                   ? 'border-gray-800 bg-gray-800/40 opacity-40 cursor-not-allowed'
                   : 'border-gray-700 bg-gray-800 hover:border-gray-500 hover:scale-105 cursor-pointer'

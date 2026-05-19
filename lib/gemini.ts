@@ -75,6 +75,34 @@ Write 2–3 bullet points maximum. Each bullet is one short sentence. Start each
   return result.response.text()
 }
 
+export async function classifyQuestion({
+  question,
+  existingTopics,
+}: {
+  question: string
+  existingTopics: string[]
+}): Promise<string> {
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' })
+  const topicList = existingTopics.length > 0
+    ? `Existing topics: ${existingTopics.join(', ')}`
+    : 'No topics yet.'
+  const prompt = `${topicList}
+
+New question: "${question}"
+
+${existingTopics.length >= 7
+  ? 'You MUST either assign this question to one of the existing topics that are relatively specific above or not assign it at all if it is not a good match.'
+  : 'Either assign to an existing specific topic (preferred if a good match) or create a new one (2–4 words, title case).'
+}
+Reply with ONLY the topic label — no explanation, no punctuation.`
+
+  const result = await model.generateContent({
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig: { maxOutputTokens: 15, temperature: 0 },
+  })
+  return result.response.text().trim()
+}
+
 export async function answerQuestion({
   question,
   transcript,
