@@ -1,12 +1,13 @@
 export const runtime = 'nodejs'
 
 import { NextResponse } from 'next/server'
-import { getRoomById } from '@/lib/store'
+import { getRoomById, getAttendeeById } from '@/lib/store'
 import { summarizeTranscript } from '@/lib/gemini'
+import { SAMPLE_TRANSCRIPT } from '@/lib/transcript-data'
 import { cookies } from 'next/headers'
 
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
-  const room = getRoomById(params.id)
+  const room = await getRoomById(params.id)
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
 
   const cookieStore = cookies()
@@ -16,11 +17,11 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ error: 'Not joined in this room' }, { status: 403 })
   }
 
-  const attendee = room.attendees.get(session.attendeeId)
+  const attendee = await getAttendeeById(params.id, session.attendeeId)
   if (!attendee) return NextResponse.json({ error: 'Attendee not found' }, { status: 404 })
 
   const summary = await summarizeTranscript({
-    transcript: room.transcript,
+    transcript: SAMPLE_TRANSCRIPT,
     currentIndex: room.currentLineIndex,
     attendee,
   })

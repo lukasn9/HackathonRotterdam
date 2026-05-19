@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getRoomById } from '@/lib/store'
+import { getRoomById, getAttendeeById } from '@/lib/store'
 import AudienceRoom from '@/components/AudienceRoom'
 
 export default async function RoomPage({ params }: { params: { id: string } }) {
@@ -10,11 +10,12 @@ export default async function RoomPage({ params }: { params: { id: string } }) {
 
   if (!session || session.roomId !== params.id) redirect('/')
 
-  const room = getRoomById(params.id)
-  if (!room) redirect('/')
+  const [room, attendee] = await Promise.all([
+    getRoomById(params.id),
+    getAttendeeById(params.id, session.attendeeId),
+  ])
 
-  const attendee = room.attendees.get(session.attendeeId)
-  if (!attendee) redirect('/')
+  if (!room || !attendee) redirect('/')
 
   return (
     <AudienceRoom

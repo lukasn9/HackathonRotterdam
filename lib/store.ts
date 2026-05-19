@@ -1,9 +1,8 @@
+import { createServerClient } from './supabase'
 import { SAMPLE_TRANSCRIPT } from './transcript-data'
-import { randomUUID } from 'crypto'
 
 export type FieldOfStudy = 'STEM' | 'Humanities' | 'Business' | 'Medicine'
 export type ProficiencyLevel = 'Novice' | 'Intermediate' | 'Expert'
-
 export type TranscriptLine = { text: string }
 
 export type Attendee = {
@@ -13,11 +12,6 @@ export type Attendee = {
   fieldOfStudy: FieldOfStudy
   proficiencyLevel: ProficiencyLevel
   joinedAt: Date
-}
-
-export type SSEClient = {
-  id: string
-  controller: ReadableStreamDefaultController
 }
 
 export type ReactionEvent = {
@@ -34,108 +28,205 @@ export type Room = {
   accessCode: string
   title: string
   createdAt: Date
-  transcript: TranscriptLine[]
   currentLineIndex: number
   isPlaying: boolean
-  playbackInterval?: ReturnType<typeof setInterval>
-  attendees: Map<string, Attendee>
-  sseClients: Set<SSEClient>
-  // One emoji per attendee; auto-cleared after 5s (reflects current pulse)
-  reactions: Map<string, string>
-  // Append-only log of every reaction click, newest last, capped at 50
-  reactionTimeline: ReactionEvent[]
 }
 
-// Survive Next.js hot reloads in dev
-const g = globalThis as typeof globalThis & { __rooms?: Map<string, Room> }
-if (!g.__rooms) g.__rooms = new Map()
-export const rooms: Map<string, Room> = g.__rooms
-
-export function createRoom(title: string): Room {
-  const id = randomUUID()
+export async function createRoom(title: string): Promise<{ id: string; accessCode: string; title: string }> {
+  const supabase = createServerClient()
   const accessCode = Math.floor(100000 + Math.random() * 900000).toString()
-  const room: Room = {
-    id,
-    accessCode,
-    title,
-    createdAt: new Date(),
-    transcript: [...SAMPLE_TRANSCRIPT],
-    currentLineIndex: -1,
-    isPlaying: false,
-    attendees: new Map(),
-    sseClients: new Set(),
-    reactions: new Map(),
-    reactionTimeline: [],
+  const { data, error } = await supabase
+    .from('rooms')
+    .insert({ access_code: accessCode, title })
+    .select()
+    .single()
+  if (error) throw error
+  return { id: data.id, accessCode: data.access_code, title: data.title }
+}
+
+export async function getRoomById(id: string): Promise<Room | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('rooms')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error || !data) return null
+  return {
+    id: data.id,
+    accessCode: data.access_code,
+    title: data.title,
+    createdAt: new Date(data.created_at),
+    currentLineIndex: data.current_line_index,
+    isPlaying: data.is_playing,
   }
-  rooms.set(id, room)
-  return room
 }
 
-export function getRoomById(id: string): Room | undefined {
-  return rooms.get(id)
-}
-
-export function getRoomByCode(code: string): Room | undefined {
-  for (const room of Array.from(rooms.values())) {
-    if (room.accessCode === code) return room
+export async function getRoomByCode(code: string): Promise<Room | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('rooms')
+    .select('*')
+    .eq('access_code', code)
+    .single()
+  if (error || !data) return null
+  return {
+    id: data.id,
+    accessCode: data.access_code,
+    title: data.title,
+    createdAt: new Date(data.created_at),
+    currentLineIndex: data.current_line_index,
+    isPlaying: data.is_playing,
   }
-  return undefined
 }
 
-export function addAttendee(roomId: string, attendee: Attendee): boolean {
-  const room = rooms.get(roomId)
-  if (!room) return false
-  room.attendees.set(attendee.id, attendee)
-  return true
+export async function addAttendee(roomId: string, attendee: Attendee): Promise<boolean> {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('attendees').insert({
+    id: attendee.id,
+    room_id: roomId,
+    name: attendee.name,
+    institution: attendee.institution,
+    field_of_study: attendee.fieldOfStudy,
+    proficiency_level: attendee.proficiencyLevel,
+  })
+  return !error
 }
 
-export function broadcastToRoom(roomId: string, data: object): void {
-  const room = rooms.get(roomId)
-  if (!room) return
-  const payload = `data: ${JSON.stringify(data)}\n\n`
-  const toRemove: SSEClient[] = []
-  for (const client of Array.from(room.sseClients)) {
-    try {
-      client.controller.enqueue(new TextEncoder().encode(payload))
-    } catch {
-      toRemove.push(client)
-    }
+export async function getAttendeeById(roomId: string, attendeeId: string): Promise<Attendee | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('attendees')
+    .select('*')
+    .eq('id', attendeeId)
+    .eq('room_id', roomId)
+    .single()
+  if (error || !data) return null
+  return {
+    id: data.id,
+    name: data.name,
+    institution: data.institution,
+    fieldOfStudy: data.field_of_study as FieldOfStudy,
+    proficiencyLevel: data.proficiency_level as ProficiencyLevel,
+    joinedAt: new Date(data.joined_at),
   }
-  for (const client of toRemove) room.sseClients.delete(client)
 }
 
-export function setReaction(roomId: string, attendeeId: string, emoji: string): boolean {
-  const room = rooms.get(roomId)
-  if (!room) return false
-  const attendee = room.attendees.get(attendeeId)
-  room.reactions.set(attendeeId, emoji)
-  // Append to timeline (cap at 50)
-  const event: ReactionEvent = {
-    id: randomUUID(),
+export async function listAttendees(roomId: string): Promise<Attendee[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('attendees')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('joined_at', { ascending: true })
+  if (error || !data) return []
+  return data.map((row) => ({
+    id: row.id,
+    name: row.name,
+    institution: row.institution,
+    fieldOfStudy: row.field_of_study as FieldOfStudy,
+    proficiencyLevel: row.proficiency_level as ProficiencyLevel,
+    joinedAt: new Date(row.joined_at),
+  }))
+}
+
+export async function setReaction(
+  roomId: string,
+  attendeeId: string,
+  attendeeName: string,
+  emoji: string,
+  lineIndex: number,
+): Promise<boolean> {
+  const supabase = createServerClient()
+  const { error: e1 } = await supabase
+    .from('current_reactions')
+    .upsert({ attendee_id: attendeeId, room_id: roomId, emoji, updated_at: new Date().toISOString() })
+  if (e1) return false
+  const { error: e2 } = await supabase.from('reaction_events').insert({
+    room_id: roomId,
+    attendee_id: attendeeId,
+    attendee_name: attendeeName,
     emoji,
-    attendeeName: attendee?.name ?? 'Guest',
-    attendeeId,
-    lineIndex: room.currentLineIndex,
-    timestamp: new Date(),
-  }
-  room.reactionTimeline.push(event)
-  if (room.reactionTimeline.length > 50) room.reactionTimeline.shift()
-  return true
+    line_index: lineIndex,
+  })
+  return !e2
 }
 
-export function clearReaction(roomId: string, attendeeId: string): void {
-  const room = rooms.get(roomId)
-  if (room) room.reactions.delete(attendeeId)
+export async function clearReaction(roomId: string, attendeeId: string): Promise<void> {
+  const supabase = createServerClient()
+  await supabase
+    .from('current_reactions')
+    .delete()
+    .eq('attendee_id', attendeeId)
+    .eq('room_id', roomId)
 }
 
-export function getReactionCounts(roomId: string): Record<string, number> {
-  const room = rooms.get(roomId)
-  if (!room) return {}
+export async function getReactionStats(roomId: string): Promise<{
+  counts: Record<string, number>
+  total: number
+  respondents: number
+}> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('current_reactions')
+    .select('emoji')
+    .eq('room_id', roomId)
+  if (error || !data) return { counts: {}, total: 0, respondents: 0 }
   const counts: Record<string, number> = {}
-  for (const emoji of Array.from(room.reactions.values())) {
-    counts[emoji] = (counts[emoji] ?? 0) + 1
+  for (const row of data) {
+    counts[row.emoji] = (counts[row.emoji] ?? 0) + 1
   }
-  return counts
+  const total = data.length
+  return { counts, total, respondents: total }
+}
+
+export async function getReactionTimeline(roomId: string): Promise<ReactionEvent[]> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('reaction_events')
+    .select('*')
+    .eq('room_id', roomId)
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (error || !data) return []
+  return data.map((row) => ({
+    id: row.id,
+    emoji: row.emoji,
+    attendeeName: row.attendee_name,
+    attendeeId: row.attendee_id,
+    lineIndex: row.line_index,
+    timestamp: new Date(row.created_at),
+  }))
+}
+
+// Returns the new index, or null if already at end / room not found
+export async function advanceTranscript(
+  id: string,
+): Promise<{ status: 'advanced' | 'finished' | 'not_found'; index: number }> {
+  const supabase = createServerClient()
+  const { data: room, error } = await supabase
+    .from('rooms')
+    .select('current_line_index')
+    .eq('id', id)
+    .single()
+  if (error || !room) return { status: 'not_found', index: -1 }
+
+  const currentIndex: number = room.current_line_index
+  const totalLines = SAMPLE_TRANSCRIPT.length
+
+  if (currentIndex >= totalLines - 1) {
+    await supabase.from('rooms').update({ is_playing: false }).eq('id', id)
+    return { status: 'finished', index: currentIndex }
+  }
+
+  const nextIndex = currentIndex + 1
+  const isLast = nextIndex >= totalLines - 1
+  await supabase
+    .from('rooms')
+    .update({ current_line_index: nextIndex, ...(isLast ? { is_playing: false } : {}) })
+    .eq('id', id)
+
+  return { status: isLast ? 'finished' : 'advanced', index: nextIndex }
 }
 
 export function formatCode(code: string): string {

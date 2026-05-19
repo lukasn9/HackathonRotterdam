@@ -1,27 +1,64 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { SAMPLE_TRANSCRIPT } from '@/lib/transcript-data'
 
-export default function TranscriptControls({ roomId, isPlayingInitial = false }: { roomId: string; isPlayingInitial?: boolean }) {
-  const [isPlaying, setIsPlaying] = useState(isPlayingInitial)
+export default function TranscriptControls({ roomId }: { roomId: string; isPlayingInitial?: boolean }) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const [isFinished, setIsFinished] = useState(false)
   const [busy, setBusy] = useState(false)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isFinishedRef = useRef(false)
+  const roomIdRef = useRef(roomId)
 
-  // Poll room state to detect when auto-play reaches the last line
-  useEffect(() => {
-    const poll = setInterval(async () => {
+  useEffect(() => { isFinishedRef.current = isFinished }, [isFinished])
+  useEffect(() => { roomIdRef.current = roomId }, [roomId])
+
+  function stopInterval() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }
+
+  function startInterval() {
+    stopInterval()
+    intervalRef.current = setInterval(async () => {
+      if (isFinishedRef.current) { stopInterval(); return }
       try {
-        const res = await fetch(`/api/room/${roomId}`)
-        if (!res.ok) return
+        const res = await fetch(`/api/room/${roomIdRef.current}/control`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'advance' }),
+        })
         const data = await res.json()
-        if (data.currentLineIndex >= data.totalLines - 1 && data.totalLines > 0) {
+        if (data.status === 'finished') {
+          stopInterval()
+          isFinishedRef.current = true
           setIsFinished(true)
           setIsPlaying(false)
         }
       } catch { /* ignore */ }
-    }, 3000)
-    return () => clearInterval(poll)
-  }, [roomId])
+    }, 4000)
+  }
+
+  // On mount, fetch room state and resume if already playing
+  useEffect(() => {
+    fetch(`/api/room/${roomId}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.currentLineIndex >= SAMPLE_TRANSCRIPT.length - 1 && data.currentLineIndex >= 0) {
+          setIsFinished(true)
+          setIsPlaying(false)
+        } else if (data.isPlaying) {
+          setIsPlaying(true)
+          startInterval()
+        }
+      })
+      .catch(() => {})
+
+    return () => stopInterval()
+  }, [roomId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send(action: string) {
     setBusy(true)
@@ -32,10 +69,12 @@ export default function TranscriptControls({ roomId, isPlayingInitial = false }:
         body: JSON.stringify({ action }),
       })
       const data = await res.json()
-      if (action === 'start' && data.status === 'started') setIsPlaying(true)
-      if (action === 'start' && data.status === 'transcript finished') setIsFinished(true)
-      if (action === 'pause') setIsPlaying(false)
-      if (action === 'reset') { setIsPlaying(false); setIsFinished(false) }
+      if (action === 'start') {
+        if (data.status === 'started') { setIsPlaying(true); startInterval() }
+        if (data.status === 'transcript finished') { setIsFinished(true) }
+      }
+      if (action === 'pause') { stopInterval(); setIsPlaying(false) }
+      if (action === 'reset') { stopInterval(); setIsPlaying(false); setIsFinished(false) }
     } catch { /* ignore */ }
     finally { setBusy(false) }
   }

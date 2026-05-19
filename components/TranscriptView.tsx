@@ -1,47 +1,43 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-
-type Line = { text: string; index: number }
+import { createBrowserClient } from '@/lib/supabase'
+import { SAMPLE_TRANSCRIPT } from '@/lib/transcript-data'
 
 export default function TranscriptView({ roomId }: { roomId: string }) {
-  const [lines, setLines] = useState<Line[]>([])
+  const [currentIndex, setCurrentIndex] = useState(-1)
   const [connected, setConnected] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const es = new EventSource(`/api/room/${roomId}/stream`)
+    // Fetch current state immediately so late joiners see existing lines
+    fetch(`/api/room/${roomId}`)
+      .then((r) => r.json())
+      .then((d) => { if (typeof d.currentLineIndex === 'number') setCurrentIndex(d.currentLineIndex) })
+      .catch(() => {})
 
-    es.onopen = () => setConnected(true)
+    const supabase = createBrowserClient()
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (data.reset) {
-          setLines([])
-          return
-        }
-        if (typeof data.line === 'string') {
-          setLines((prev) => {
-            // Avoid duplicates on reconnect
-            if (prev.some((l) => l.index === data.index)) return prev
-            return [...prev, { text: data.line, index: data.index }]
-          })
-        }
-      } catch {
-        // ignore malformed events
-      }
-    }
+    const channel = supabase
+      .channel(`room-transcript-${roomId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+        (payload) => {
+          const newIndex = (payload.new as { current_line_index: number }).current_line_index
+          if (typeof newIndex === 'number') setCurrentIndex(newIndex)
+        },
+      )
+      .subscribe((status) => setConnected(status === 'SUBSCRIBED'))
 
-    es.onerror = () => setConnected(false)
-
-    return () => es.close()
+    return () => { supabase.removeChannel(channel) }
   }, [roomId])
 
-  // Auto-scroll to bottom on new lines
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [lines])
+  }, [currentIndex])
+
+  const lines = currentIndex >= 0 ? SAMPLE_TRANSCRIPT.slice(0, currentIndex + 1) : []
 
   return (
     <div className="h-full flex flex-col">
@@ -60,7 +56,7 @@ export default function TranscriptView({ roomId }: { roomId: string }) {
             const isActive = i === lines.length - 1
             return (
               <p
-                key={line.index}
+                key={i}
                 className={`leading-relaxed transition-all duration-500 ${
                   isActive
                     ? 'text-white text-lg font-medium'

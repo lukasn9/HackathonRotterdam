@@ -7,7 +7,7 @@ import { cookies } from 'next/headers'
 const ALLOWED_EMOJIS = ['🔥', '👍', '😮', '🤔', '😴']
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const room = getRoomById(params.id)
+  const room = await getRoomById(params.id)
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
 
   const cookieStore = cookies()
@@ -19,9 +19,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   const body = await req.json().catch(() => ({}))
 
-  // Client calls with { clear: true } after the 5s lock expires
   if (body.clear === true) {
-    clearReaction(params.id, session.attendeeId)
+    await clearReaction(params.id, session.attendeeId)
     return NextResponse.json({ active: null })
   }
 
@@ -30,6 +29,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: 'Invalid emoji' }, { status: 400 })
   }
 
-  setReaction(params.id, session.attendeeId, emoji)
+  const attendeeName = session.attendeeName ?? 'Guest'
+  await setReaction(params.id, session.attendeeId, attendeeName, emoji, room.currentLineIndex)
   return NextResponse.json({ active: emoji })
 }

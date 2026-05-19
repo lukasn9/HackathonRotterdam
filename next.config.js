@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ['qrcode'],
+    serverComponentsExternalPackages: ['qrcode', '@supabase/supabase-js', '@supabase/realtime-js'],
   },
 };
 

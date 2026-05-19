@@ -8,7 +8,7 @@ const VALID_FIELDS = ['STEM', 'Humanities', 'Business', 'Medicine']
 const VALID_LEVELS = ['Novice', 'Intermediate', 'Expert']
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const room = getRoomById(params.id)
+  const room = await getRoomById(params.id)
   if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 })
 
   const body = await req.json().catch(() => ({}))
@@ -33,10 +33,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     joinedAt: new Date(),
   }
 
-  addAttendee(params.id, attendee)
+  await addAttendee(params.id, attendee)
 
   const response = NextResponse.json({ success: true, attendeeId: attendee.id })
-  response.cookies.set('session', JSON.stringify({ attendeeId: attendee.id, roomId: params.id }), {
+  response.cookies.set('session', JSON.stringify({
+    attendeeId: attendee.id,
+    roomId: params.id,
+    attendeeName: attendee.name,
+  }), {
     httpOnly: true,
     path: '/',
     maxAge: 60 * 60 * 24,
